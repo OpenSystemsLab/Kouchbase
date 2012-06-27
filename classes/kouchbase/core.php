@@ -496,13 +496,49 @@ abstract class Kouchbase_Core {
 
     /**
      * Delete the current record
+     *
+     * @param boolean check constraint before delete
      * @return Kouchbase_Core
      */
-    public function delete()
+    public function delete($check_constraint = TRUE)
     {
         if (!isset($this->id))
         {
         	throw new Kouchbase_Exception('Cannot delete :model without the id.', array(':model' => $this->_model));
+        }
+        if($check_constraint) {
+            foreach($this->fields as $name => $value)
+            {
+                $field = $this->_fields[$name];
+                if($field instanceof Kouchbase_Field_O2M)
+                {
+                    $ids = $this->_related[$name];
+                    foreach($ids as $id)
+                    {
+                        $model = Kouchbase::factory($field->model)->load($id);
+                        $foreign_key = isset($field->foreign_key)?$field->foreign_key:$this->_model;
+
+                        if(!$model->field($foreign_key)->empty && !$model->field($foreign_key)->null)
+                        {
+                            $model->delete();
+                        }
+                        else
+                        {
+                            $model->{$foreign_key} = NULL;
+                            $model->save();
+                        }
+                    }
+                    // remove mapping key
+                    // player1_plants
+                    $key = $this->_model . $this-id . '_' . $field->model;
+                    KouchbaseDB::instance()->delete($key);
+                }
+                elseif($field instanceof Kouchbase_Field_M2O)
+                {
+                    $model = Kouchbase::factory($field->model)->load($value);
+                    $model->remove_relation(Inflector::plural($this->model), $this->id);
+                }
+            }
         }
 
         $key = $this->_model . $this->id;
@@ -546,15 +582,11 @@ abstract class Kouchbase_Core {
         }
         foreach($value as $val)
         {
-            if($val instanceof Kouchbase)
+            if(!$val instanceof Kouchbase)
             {
-                $this->_related[$name][] = $val->id;
-            }
-            else
-            {
-                $this->_related[$name][] = $val;
                 $val = Kouchbase::factory($field->model)->load($val);
             }
+            $this->_related[$name][] = $val->id;
 
             $foreign_key = isset($field->foreign_key)?$field->foreign_key:$this->_model;
 
@@ -595,15 +627,18 @@ abstract class Kouchbase_Core {
             {
                 $val = Kouchbase::factory($field->model)->load($val);
             }
-            if(!$field->empty && !$field->null)
+
+            $foreign_key = isset($field->foreign_key)?$field->foreign_key:$this->_model;
+
+            if(!$val->field($foreign_key)->empty && !$val->field($foreign_key)->null)
             {
                 // remove related object if foreign_key cannot be empty & nullable
-                $val->delete();
+                $val->delete(FALSE);
             }
             else
             {
-                $foreign_key = isset($field->foreign_key)?$field->foreign_key:$this->_model;
                 $val->$foreign_key = NULL;
+                $val->save();
             }
             $temp[] = $val->id;
         }
