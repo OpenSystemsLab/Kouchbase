@@ -99,72 +99,59 @@ abstract class Kouchbase_Core {
     	if (isset($this->_fields[$name]))
     	{
 
-    		if (isset($this->_related[$name]))
+    		/*if (isset($this->_related[$name]))
     		{
     			return $this->_related[$name];
-    		}
+    		}*/
 
     		$field = $this->_fields[$name];
 
-    		$value = isset($this->_values[$name])
-    		? $this->_values[$name]
-    		: NULL;
-
     		if ($field instanceof Kouchbase_Field_ForeignKey)
     		{
-    			if ( ! isset($this->_related[$name]))
-    			{
-    				$model = Kouchbase::factory($field->model);
-    				if ($field instanceof Kouchbase_Field_O2M)
-    				{
+    			$model = Kouchbase::factory($field->model);
+				if ($field instanceof Kouchbase_Field_O2M)
+				{
 
-    					if ($field instanceof Kouchbase_Field_M2M)
-    					{
-    						throw new Kouchbase_Exception('M2M is not supported yet');
-    					}
-    					else
-    					{
+					if ($field instanceof Kouchbase_Field_M2M)
+					{
+						throw new Kouchbase_Exception('M2M is not supported yet');
+					}
+					elseif($field instanceof Kouchbase_Field_O2M)
+					{
+					    if (isset($this->_related[$name]))
+					    {
+					        $related = $this->_related[$name];
+					    }
+						else
+						{
+							// player1_plants
+							$key = $this->_model . $this->id . '_' . $name;
+							$related = KouchbaseDB::instance()->get($key);
 
-    						if (isset($value))
-    						{
-    							$related = $field->value($value);
-    						}
-    						else
-    						{
-    							// player1_plants
-    							$key = $this->_model . $this->id . '_' . $name;
-    							$related = KouchbaseDB::instance()->get($key);
-    						}
+							$this->_related[$name] = isset($related)?$related:array();
+						}
 
-    						if(!isset($related))
-    						{
-    							$related = array();
-    						}
-
-    						$this->_related[$name] = $related;
-
-
-
-    						$value = array();
-
-    						foreach($related as $id)
-    						{
-    							$value[] = Kouchbase::factory($field->model)->load($id);
-    						}
-    					}
-
-    				}
+						$value = array();
+						foreach($related as $id)
+						{
+							$value[] = Kouchbase::factory($field->model)->load($id);
+						}
+					}
     				elseif ($field instanceof Kouchbase_Field_M2O)
     				{
     					$value = isset($value)?$field->value($value):(isset($field->default)?$field->default:NULL);
-    					return Kouchbase::factory($field->model)->load($value);
+    					return  Kouchbase::factory($field->model)->load($value);
 
     				}
     				return $value;
     			}
     		}
+    		else
+    		{
+    		    $value = isset($this->_values[$name])?$this->_values[$name]:NULL;
+    		}
 
-    		if ( $value === NULL && isset($field->default))
+    		if ( !isset($value) && isset($field->default))
     		{
     			$value = $field->default;
     		}
@@ -422,6 +409,19 @@ abstract class Kouchbase_Core {
         {
         	throw new Kouchbase_Exception('Unable to load :key.', array(':key' => $this->_model . $this->id));
         }
+
+        foreach($this->_fields as $name => $field)
+        {
+            if($field instanceof Kouchbase_Field_O2M)
+            {
+
+                $key = $this->_model . $this->id . '_' . $name;
+
+                $data = KouchbaseDB::instance()->get($key);
+                $values[$name] = isset($data)?$data:array();
+            }
+        }
+
 		$this->load_values($values);
 
         return $this;
@@ -448,9 +448,10 @@ abstract class Kouchbase_Core {
         	throw new Kouchbase_Exception('Unable to save :model.', array(':model' => $this->_model));
         }
 
-        foreach($this->_fields as $name => $value)
+        foreach($this->_fields as $name => $field)
         {
-        	$field = $this->_fields[$name];
+            $value = $this->_values[$name];
+
         	if($field instanceof Kouchbase_Field_O2M)
         	{
         		$key = $this->_model . $this->id . '_' . $name;
@@ -463,32 +464,7 @@ abstract class Kouchbase_Core {
         	}
         	elseif($field instanceof Kouchbase_Field_M2O)
         	{
-        		// plant -> player
-        		// $field->model = player
-        		// $value = player id
-        		// $this->_model = plant
-        		if(is_object($value))
-        		{
-        			$value = $value->id;
-        		}
-        		
-        		$key = $field->model . $value . '_' . Inflector::plural($this->_model);
-
-        		$data = KouchbaseDB::instance()->get($key);
-        		if(!$data)
-        		{
-        			$data = array();
-        		}
-        		if(!isset($data[$value]))
-        		{
-        			$data[] = value;
-        		}
-        		KouchbaseDB::instance()->set($key, $data);
-        		if(KouchbaseDB::instance()->get_result_code() != COUCHBASE_SUCCESS)
-        		{
-        			throw new Kouchbase_Exception('Unable to save :key.', array(':key' => $key));
-        		}
-
+        		Kouchbase::factory($field->model)->load($value)->add_relation(Inflector::plural($this->_model), $this->id);
         	}
         }
 
@@ -510,7 +486,7 @@ abstract class Kouchbase_Core {
         {
         	throw new Kouchbase_Exception('Cannot delete :model without the id.', array(':model' => $this->_model));
         }
-        
+
         foreach($this->fields as $name => $value)
         {
         	$field = $this->_fields[$name];
@@ -583,20 +559,32 @@ abstract class Kouchbase_Core {
         {
             throw new Kouchbase_Exception('M2M is not supported yet');
         }
+
         foreach($value as $val)
         {
-            if(!$val instanceof Kouchbase)
+
+            if($val instanceof Kouchbase)
             {
-                $val = Kouchbase::factory($field->model)->load($val);
+                $val = $val->id;
             }
-            $this->_related[$name][] = $val->id;
+            $this->_related[$name][] = $val;
 
-            /*
-            $foreign_key = isset($field->foreign_key)?$field->foreign_key:$this->_model;
+            $key = $this->_model . $this->id . '_' . $name;
+            $data = KouchbaseDB::instance()->get($key);
+            if(!$data)
+            {
+                $data = array();
+            }
+            if(!isset($data[$val]))
+            {
+                $data[] = $val;
 
-            // update related object's foreign_key to current object' id
-            $val->{$field->foreign_key} = $this->id;
-            */
+                KouchbaseDB::instance()->set($key, $data);
+                if(KouchbaseDB::instance()->get_result_code() != COUCHBASE_SUCCESS)
+                {
+                    throw new Kouchbase_Exception('Unable to save :key.', array(':key' => $key));
+                }
+            }
         }
 
         return $this;
