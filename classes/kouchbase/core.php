@@ -99,10 +99,10 @@ abstract class Kouchbase_Core {
     	if (isset($this->_fields[$name]))
     	{
 
-    		/*if (isset($this->_related[$name]))
+    		if (isset($this->_related[$name]))
     		{
     			return $this->_related[$name];
-    		}*/
+    		}
 
     		$field = $this->_fields[$name];
 
@@ -118,24 +118,12 @@ abstract class Kouchbase_Core {
 					}
 					elseif($field instanceof Kouchbase_Field_O2M)
 					{
-					    if (isset($this->_related[$name]))
-					    {
-					        $related = $this->_related[$name];
-					    }
-						else
-						{
-							// player1_plants
-							$key = $this->_model . $this->id . '_' . $name;
-							$related = KouchbaseDB::instance()->get($key);
+					    // player1_plants
+						$key = $this->_model . $this->id . '_' . $name;
+						$related = KouchbaseDB::instance()->get($key);
+						$this->_related[$name] = isset($related)?$related:array();
 
-							$this->_related[$name] = isset($related)?$related:array();
-						}
-
-						$value = array();
-						foreach($related as $id)
-						{
-							$value[] = Kouchbase::factory($field->model)->load($id);
-						}
+						return $related;
 					}
     				elseif ($field instanceof Kouchbase_Field_M2O)
     				{
