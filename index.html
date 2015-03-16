@@ -1,0 +1,318 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Kouchbase by rgv151</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Kouchbase</h1>
+        <p>a ORM like library for Couchbase - Kohana 3.2</p>
+
+        <p class="view"><a href="https://github.com/rgv151/Kouchbase">View the Project on GitHub <small>rgv151/Kouchbase</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/rgv151/Kouchbase/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/rgv151/Kouchbase/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/rgv151/Kouchbase">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="kouchbase" class="anchor" href="#kouchbase" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase</h1>
+
+<p>A ORM like library for <a href="http://couchbase.com/" title="Couchbase Server">Couchbase</a> &amp; <a href="http://kohanaframework.org" title="Kohana PHP Framework">Kohana</a> 3.2, impressed by <a href="http://github.com/sittercity/sprig" title="A database modeling system for the Kohana framework">Sprig</a> and some other Kohana ORM modules.</p>
+
+<p><strong>This project is under development, use it as your own risk!</strong></p>
+
+<h2>
+<a id="quick-start" class="anchor" href="#quick-start" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick Start</h2>
+
+<p>Each model must:</p>
+
+<ul>
+<li>Extend the <code>Kouchbase</code> class</li>
+<li>Define a protected <code>_init()</code> method and set the field mappings</li>
+</ul>
+
+<p>Example of a model:</p>
+
+<pre><code>class Model_Player extends Kouchbase {
+
+    protected function _init()
+    {
+        'first_name' =&gt; new Kouchbase_Field_Char(array(
+            'min_length' =&gt; 2,
+            'max_length' =&gt; 100,
+            'label' =&gt; 'First Name',
+        )),
+        'last_name' =&gt; new Kouchbase_Field_Char(array(
+            'min_length' =&gt; 2,
+            'max_length' =&gt; 100,
+            'label' =&gt; 'Last Name',
+            'default' =&gt; ''
+        )),
+    }
+}
+</code></pre>
+
+<h2>
+<a id="interacting-with-models" class="anchor" href="#interacting-with-models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Interacting with models</h2>
+
+<p>Loading models is done with the <code>Kouchbase::factory($name)</code> method:</p>
+
+<pre><code>$player = Kouchbase::factory('player');
+</code></pre>
+
+<p>Loading models by calling new <code>Model_Player</code> will not work! You must use the <code>factory()</code> method.</p>
+
+<h2>
+<a id="data" class="anchor" href="#data" aria-hidden="true"><span class="octicon octicon-link"></span></a>Data</h2>
+
+<p>Model data is read using object properties:</p>
+
+<pre><code>$first_name = $player-&gt;first_name;
+$last_name  = $player-&gt;last_name;
+</code></pre>
+
+<p>Model data is changed the same way:</p>
+
+<pre><code>$player-&gt;first_name = 'My First Name';
+</code></pre>
+
+<p>You can also use the <code>load_values()</code> method set many fields using an associative array:</p>
+
+<pre><code>$player-&gt;load_values(array(
+    'first_name' =&gt; 'FN',
+));
+</code></pre>
+
+<h2>
+<a id="create-read-update-and-delete-crud" class="anchor" href="#create-read-update-and-delete-crud" aria-hidden="true"><span class="octicon octicon-link"></span></a>Create, Read, Update, and Delete (CRUD)</h2>
+
+<p>Reading records is done by setting the search values, then calling the <code>load()</code> method:</p>
+
+<pre><code>$player = Kouchbase::factory('player');
+$player-&gt;load(5);
+
+if ($player-&gt;loaded())
+{
+    // Do something with the player
+}
+</code></pre>
+
+<p>It is also possible to pre-populate the model using an array of values:</p>
+
+<pre><code>$player = Kouchbase::factory('player', array('id' =&gt; 10))-&gt;load();
+</code></pre>
+
+<p>Creating new records &amp; Update extsting record is done using the <code>save()</code> method:</p>
+
+<pre><code>$player = Kouchbase::factory('player', array(
+    'first_name'     =&gt; 'FN',
+    'last_name'      =&gt; 'LN',
+));
+
+// Create a new player
+$player-&gt;save();
+</code></pre>
+
+<p>If the model data does not satisfy the validation requirements, a <code>Validate_Exception</code> will be thrown. This exception should be caught and used to show the end user the error messages:</p>
+
+<pre><code>try
+{
+    // Create a new player
+    $player-&gt;save();
+}
+catch (Validate_Exception $e)
+{
+    // Get the errors using the Validate::errors() method
+    $errors = $e-&gt;array-&gt;errors('player');
+}
+</code></pre>
+
+<p>Deleting a record is done using the <code>delete()</code> method:</p>
+
+<pre><code>$player-&gt;delete();
+</code></pre>
+
+<h2>
+<a id="field-object-reference" class="anchor" href="#field-object-reference" aria-hidden="true"><span class="octicon octicon-link"></span></a>Field Object Reference</h2>
+
+<p>Accessing a field object is done using the <code>field()</code> method:</p>
+
+<pre><code>$first_name = $player-&gt;field('first_name');
+</code></pre>
+
+<p>An array of fields can be accessed using the fields() method:</p>
+
+<pre><code>$fields = $player-&gt;fields();
+</code></pre>
+
+<h3>
+<a id="types-of-fields" class="anchor" href="#types-of-fields" aria-hidden="true"><span class="octicon octicon-link"></span></a>Types of fields</h3>
+
+<p>KOuchbase offers most database column types as classes. Each field must extend the <code>Kouchbase_Field</code> class. Each field has the following properties:</p>
+
+<p><code>empty</code> : Allow <code>empty()</code> values to be used. Default is <code>FALSE</code>.</p>
+
+<p><code>unique</code> : This field must have a unique value within the model table. Default is <code>FALSE</code>.</p>
+
+<p><code>null</code> : Convert all <code>empty()</code> values to <code>NULL</code>. Default is <code>FALSE</code>.</p>
+
+<p><code>editable</code> : Show the field in forms. Default is <code>TRUE</code>.</p>
+
+<p><code>default</code> : Default value for this field. Default is '' (an empty string).</p>
+
+<p><code>label</code> : Human readable label. Default will be the field name converted with <code>Inflector::humanize()</code>.</p>
+
+<p><code>description</code> : Description of the field. Default is '' (an empty string).</p>
+
+<p><code>filters</code> : Validate filters for this field.</p>
+
+<p><code>rules</code> : Validate rules for this field.</p>
+
+<h4>
+<a id="kouchbase_field_boolean" class="anchor" href="#kouchbase_field_boolean" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_Boolean</h4>
+
+<p>A boolean (TRUE/FALSE) field, representing by a checkbox.</p>
+
+<p>Implies <code>empty = TRUE</code> and <code>default = FALSE</code>.</p>
+
+<h4>
+<a id="kouchbase_field_char" class="anchor" href="#kouchbase_field_char" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_Char</h4>
+
+<p>A single line of text, represented by a text input.</p>
+
+<p>Also has the <code>min_length</code> and <code>max_length</code> properties.</p>
+
+<h4>
+<a id="kouchbase_field_float" class="anchor" href="#kouchbase_field_float" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_Float</h4>
+
+<p>A float or decimal number, represented by a text input.</p>
+
+<p>Also has the <code>places</code> property.</p>
+
+<h4>
+<a id="kouchbase_field_integer" class="anchor" href="#kouchbase_field_integer" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_Integer</h4>
+
+<p>An integer number, represented with a text input (or a select input, if the choices property is set).</p>
+
+<p>Also has the <code>min_value</code> and <code>max_value</code> properties.</p>
+
+<h4>
+<a id="kouchbase_field_text" class="anchor" href="#kouchbase_field_text" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_Text</h4>
+
+<p>A large block of text, represented by a textarea.</p>
+
+<h4>
+<a id="kouchbase_field_o2o" class="anchor" href="#kouchbase_field_o2o" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_O2O</h4>
+
+<p>not implement, use <code>Kouchbase_Field_O2M</code> instead</p>
+
+<h4>
+<a id="kouchbase_field_m2o" class="anchor" href="#kouchbase_field_m2o" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_M2O</h4>
+
+<p>A reference to another model by the child model <code>id</code> value.</p>
+
+<p>Has the <code>model</code> property, the name of another Kouchbase model.</p>
+
+<h4>
+<a id="kouchbase_field_o2m" class="anchor" href="#kouchbase_field_o2m" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_O2M</h4>
+
+<p>A reference to many other models by this model <code>id</code> value</p>
+
+<p>Has the <code>model</code> property, the name of another Kouchbase model.</p>
+
+<h4>
+<a id="kouchbase_field_m2m" class="anchor" href="#kouchbase_field_m2m" aria-hidden="true"><span class="octicon octicon-link"></span></a>Kouchbase_Field_M2M</h4>
+
+<p>Not implement yet</p>
+
+<h2>
+<a id="one-to-many-relations" class="anchor" href="#one-to-many-relations" aria-hidden="true"><span class="octicon octicon-link"></span></a>One To Many Relations</h2>
+
+<p>There's a few ways to add and remove one to many relations. The first is to use the raw field names:</p>
+
+<pre><code>$player-&gt;plants = array(1, 2, 3);
+</code></pre>
+
+<p>This will completely overwrite all the relationships for this model. The only relations to this model will be 1, 2 and 3.</p>
+
+<p>The second way is to use the <code>add_relation()</code> and <code>remove_relation()</code> methods:</p>
+
+<pre><code>$player-&gt;add_relation('plants', 1);
+</code></pre>
+
+<p>You can also pass an object:</p>
+
+<pre><code>$player-&gt;add_relation('plants', $plant);
+</code></pre>
+
+<p>Or an array of ids:
+    $player-&gt;add_relation('plants', array(1, 2, 3);</p>
+
+<p>Or an array of objects!</p>
+
+<pre><code>$player-&gt;add_relation('plants', array($plant1, $plant2, $plant3);
+</code></pre>
+
+<h3>
+<a id="removing-relations" class="anchor" href="#removing-relations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Removing Relations</h3>
+
+<p>To remove a relation, use the same techniques as above.</p>
+
+<pre><code>$player-&gt;plants = array(1,2,3)
+</code></pre>
+
+<p>This will completely overwrite all the relationships for this model. The only relations to this model will be 1, 2 and 3.</p>
+
+<p>Use <code>remove_relation()</code> instead of <code>add_relation()</code>:</p>
+
+<pre><code>$player-&gt;remove_relation('plants', 1);
+</code></pre>
+
+<p>You can also pass an object:</p>
+
+<pre><code>$player-&gt;remove_relation('plants', $plant);
+</code></pre>
+
+<p>Or an array of ids:</p>
+
+<pre><code>$player-&gt;remove_relation('plants', array(1, 2, 3);
+</code></pre>
+
+<p>Or an array of objects!</p>
+
+<pre><code>$player-&gt;remove_relation('plants', array($plant1, $plant2, $plant3);
+</code></pre>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/rgv151">rgv151</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-15252221-9");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
